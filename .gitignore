@@ -6,7 +6,6 @@
 .classpath
 *.idea
 /gradle/
-/out/
 gradlew.bat
 /gradlew
 /*.iml
