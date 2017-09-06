@@ -7,7 +7,7 @@ General changes in comparison to original project:
 
 - some tags/fields/measurements are renamed
 - InfluxDB tags "testType, buildId, loadGenerator" are added for better results analysis, especially being integrated into CI/CD process 
-- Compatability with jmeter 2.13 is supported by using deprecated org.apache.jorphan.logging.LoggingManager.
+- Compatability with JMeter 2.13 is provided by using deprecated org.apache.jorphan.logging.LoggingManager
 - sampleResult.getLatency() added
 - Initial ping of InfluxDB host before data streaming
 - InfluxDBException support
