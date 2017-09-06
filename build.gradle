@@ -1,9 +1,10 @@
 apply plugin: 'java'
-apply plugin: 'eclipse'
+apply plugin: 'idea'
 
-sourceCompatibility = 1.7
-version = '1.2'
-def title = 'JMeterInfluxDBListener'
+
+sourceCompatibility = 1.8
+version = '1.0'
+def title = 'InfluxBackendListenerClient'
 
 jar {
     manifest {
@@ -17,9 +18,9 @@ repositories {
 }
 
 dependencies {
-	compileOnly group: 'org.apache.jmeter', name: 'ApacheJMeter_core', version: '3.1'
-	compileOnly group: 'org.apache.jmeter', name: 'ApacheJMeter_components', version: '3.1'
-	compile group: 'org.influxdb', name: 'influxdb-java', version: '2.4'
+	compileOnly group: 'org.apache.jmeter', name: 'ApacheJMeter_core', version: '3.2'
+	compileOnly group: 'org.apache.jmeter', name: 'ApacheJMeter_components', version: '3.2'
+	compile group: 'org.influxdb', name: 'influxdb-java', version: '2.7'
 }
 
 //create a single Jar with all dependencies
@@ -35,4 +36,5 @@ task fatJar(type: Jar) {
 
 task wrapper(type: Wrapper) {
     gradleVersion = '2.12'
+
 }

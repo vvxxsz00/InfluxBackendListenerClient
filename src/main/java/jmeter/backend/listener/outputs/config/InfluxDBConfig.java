@@ -1,90 +1,48 @@
-package rocks.nt.apm.jmeter.config.influxdb;
+package jmeter.backend.listener.outputs.config;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.jmeter.visualizers.backend.BackendListenerContext;
 
 /**
  * Configuration for influxDB.
- * 
- * @author Alexander Wert
  *
  */
 public class InfluxDBConfig {
 
-	/**
-	 * Default database name.
-	 */
-	public static final String DEFAULT_DATABASE = "jmeter";
+	public static final String DEFAULT_DATABASE = "jmeter"; //Default database name.
 
-	/**
-	 * Default retention policy name.
-	 */
-	public static final String DEFAULT_RETENTION_POLICY = "autogen";
+	public static final String DEFAULT_RETENTION_POLICY = "autogen"; //Default retention policy name.
 
-	/**
-	 * Default port.
-	 */
-	public static final int DEFAULT_PORT = 8086;
+	public static final int DEFAULT_PORT = 8086; //Default port.
 
-	/**
-	 * Config key for database name.
-	 */
-	public static final String KEY_INFLUX_DB_DATABASE = "influxDBDatabase";
+//    public static final String KEY_INFLUX_PROTOCOL = "influxDBProtocol";
 
-	/**
-	 * Config key for password.
-	 */
-	public static final String KEY_INFLUX_DB_PASSWORD = "influxDBPassword";
+	public static final String KEY_INFLUX_DB_DATABASE = "influxDBDatabase"; //Config key for database name.
 
-	/**
-	 * Config key for user name.
-	 */
-	public static final String KEY_INFLUX_DB_USER = "influxDBUser";
+	public static final String KEY_INFLUX_DB_PASSWORD = "influxDBPassword"; //Config key for password.
 
-	/**
-	 * Config key for port.
-	 */
-	public static final String KEY_INFLUX_DB_PORT = "influxDBPort";
+	public static final String KEY_INFLUX_DB_USER = "influxDBUser"; //Config key for user name.
 
-	/**
-	 * Config key for host.
-	 */
-	public static final String KEY_INFLUX_DB_HOST = "influxDBHost";
+	public static final String KEY_INFLUX_DB_PORT = "influxDBPort"; //Config key for port.
 
-	/**
-	 * Config key for retention policy name.
-	 */
-	public static final String KEY_RETENTION_POLICY = "retentionPolicy";
+	public static final String KEY_INFLUX_DB_HOST = "influxDBHost"; //Config key for host.
 
-	/**
-	 * InfluxDB Host.
-	 */
-	private String influxDBHost;
+	public static final String KEY_RETENTION_POLICY = "retentionPolicy"; //Config key for retention policy name.
 
-	/**
-	 * InfluxDB User.
-	 */
-	private String influxUser;
 
-	/**
-	 * InfluxDB Password.
-	 */
-	private String influxPassword;
+	private String influxDBHost; //InfluxDB Host.
 
-	/**
-	 * InfluxDB database name.
-	 */
-	private String influxDatabase;
+	private String influxUser; //InfluxDB User.
 
-	/**
-	 * InfluxDB database retention policy.
-	 */
-	private String influxRetentionPolicy;
+	private String influxPassword; //InfluxDB Password.
 
-	/**
-	 * InfluxDB Port.
-	 */
-	private int influxDBPort;
+	private String influxDatabase; //InfluxDB database name
+
+	private String influxRetentionPolicy; //InfluxDB database retention policy.
+
+//	private String influxProtocol; //InfluxDB database protocol
+
+	private int influxDBPort; //InfluxDB Port.
 
 	public InfluxDBConfig(BackendListenerContext context) {
 		String influxDBHost = context.getParameter(KEY_INFLUX_DB_HOST);
@@ -92,6 +50,12 @@ public class InfluxDBConfig {
 			throw new IllegalArgumentException(KEY_INFLUX_DB_HOST + "must not be empty!");
 		}
 		setInfluxDBHost(influxDBHost);
+
+//        String influxProtocol = context.getParameter(KEY_INFLUX_PROTOCOL);
+//        if (StringUtils.isEmpty(influxProtocol)) {
+//            throw new IllegalArgumentException(KEY_INFLUX_PROTOCOL + "must not be empty!");
+//        }
+//        setInfluxProtocol(influxProtocol);
 
 		int influxDBPort = context.getIntParameter(KEY_INFLUX_DB_PORT, InfluxDBConfig.DEFAULT_PORT);
 		setInfluxDBPort(influxDBPort);
@@ -101,6 +65,7 @@ public class InfluxDBConfig {
 
 		String influxPassword = context.getParameter(KEY_INFLUX_DB_PASSWORD);
 		setInfluxPassword(influxPassword);
+
 
 		String influxDatabase = context.getParameter(KEY_INFLUX_DB_DATABASE);
 		if (StringUtils.isEmpty(influxDatabase)) {
@@ -120,9 +85,13 @@ public class InfluxDBConfig {
 	 * 
 	 * @return influxDB URL.
 	 */
-	public String getInfluxDBURL() {
-		return "http://" + influxDBHost + ":" + influxDBPort;
-	}
+//	public String getInfluxDBURL() {
+//		return influxProtocol+ "://" + influxDBHost + ":" + influxDBPort;
+//	}
+
+    public String getInfluxDBURL() {
+    return "http://" + influxDBHost + ":" + influxDBPort;
+}
 
 	/**
 	 * @return the influxDBHost
@@ -176,6 +145,11 @@ public class InfluxDBConfig {
 		return influxDatabase;
 	}
 
+
+//	public String getInfluxProtocol() { return influxProtocol; }
+//
+//	public void setInfluxProtocol(String influxProtocol) { this.influxProtocol = influxProtocol; }
+
 	/**
 	 * @param influxDatabase
 	 *            the influxDatabase to set
@@ -199,12 +173,9 @@ public class InfluxDBConfig {
 		this.influxRetentionPolicy = influxRetentionPolicy;
 	}
 
-	/**
-	 * @return the influxDBPort
-	 */
 	public int getInfluxDBPort() {
 		return influxDBPort;
-	}
+	} //@return the influxDBPort
 
 	/**
 	 * @param influxDBPort
