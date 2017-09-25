@@ -15,6 +15,7 @@ public interface RequestMeasurement {
 	}
 
 	 interface Fields {
+	 	String REQUEST_BYTES = "requestBytes"; // Request bytes field.
 		String RESPONSE_TIME = "responseTime"; // Response time field.
 		String RESPONSE_BYTES = "responseBytes"; // Response bytes field.
 		String RESPONSE_LATENCY = "responseLatency"; // Response code field.

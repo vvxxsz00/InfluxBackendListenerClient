@@ -1,11 +1,14 @@
 /build/
 /bin/
+.gradle/
 .gradle
 .project
 .settings/
 .classpath
 *.idea
 /gradle/
+/out/
 gradlew.bat
 /gradlew
 /*.iml
+README.md

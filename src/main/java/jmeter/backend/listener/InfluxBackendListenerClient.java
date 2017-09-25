@@ -35,6 +35,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
     private static final org.apache.log.Logger LOGGER = LoggingManager.getLoggerForClass(); // Logger
     private static final String KEY_PROJECT_NAME = "projectName";
     private static final String KEY_TEST_TYPE = "testType";
+	private static final String KEY_ENV_TYPE = "envType";
     private static final String KEY_BUILD = "buildID";
     private static final String KEY_LG_NAME = "loadGenerator";
     /**
@@ -53,6 +54,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 
 	private ScheduledExecutorService scheduler; //Scheduler for periodic metric aggregation.
 	private String testType; // Test type.
+	private String envType; // Test type.
 	private String projectName; // Project name
 	private String loadGenerator; // Load Generator name
     private String buildId;
@@ -81,11 +83,13 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 						.tag(RequestMeasurement.Tags.REQUEST_NAME, sampleResult.getSampleLabel()).addField(RequestMeasurement.Fields.ERROR_COUNT, sampleResult.getErrorCount())
 						.tag(RequestMeasurement.Tags.RESPONSE_CODE, sampleResult.getResponseCode())
 						.addField(RequestMeasurement.Fields.RESPONSE_BYTES, sampleResult.getBytes())
+						.addField(RequestMeasurement.Fields.REQUEST_BYTES, sampleResult.getSentBytes())
 						.addField(RequestMeasurement.Fields.RESPONSE_LATENCY, sampleResult.getLatency())
 						.addField(RequestMeasurement.Fields.THREAD_NAME, sampleResult.getThreadName())
+						.tag(KEY_PROJECT_NAME, projectName)
+						.tag(KEY_ENV_TYPE, envType)
 						.tag(KEY_TEST_TYPE, testType)
                         .tag(KEY_BUILD, buildId)
-						.tag(KEY_PROJECT_NAME, projectName)
 						.tag(KEY_LG_NAME, loadGenerator)
 						.addField(RequestMeasurement.Fields.RESPONSE_TIME, sampleResult.getTime()).build();
 				influxDB.write(influxDBConfig.getInfluxDatabase(), influxDBConfig.getInfluxRetentionPolicy(), point);
@@ -96,8 +100,9 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
     @Override
     public Arguments getDefaultParameters() {
         Arguments arguments = new Arguments();
+		arguments.addArgument(KEY_PROJECT_NAME, "Test_Project");
+		arguments.addArgument(KEY_ENV_TYPE, "null");
         arguments.addArgument(KEY_TEST_TYPE, "null");
-        arguments.addArgument(KEY_PROJECT_NAME, "Test_Project");
         arguments.addArgument(KEY_LG_NAME, "Load_Generator_Name");
         arguments.addArgument(KEY_BUILD, "null");
         arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_HOST, "localhost");
@@ -127,6 +132,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	@Override
 	public void setupTest(BackendListenerContext context) throws Exception {
 		testType = context.getParameter(KEY_TEST_TYPE, "null");
+		envType = context.getParameter(KEY_ENV_TYPE, "null");
 		randomNumberGenerator = new Random();
 		projectName = context.getParameter(KEY_PROJECT_NAME, "Test_Project");
         loadGenerator = context.getParameter(KEY_LG_NAME, "loadGenerator");
@@ -143,6 +149,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 					    .tag(KEY_LG_NAME, loadGenerator)
                         .tag(KEY_BUILD, buildId)
 						.tag(KEY_TEST_TYPE, testType)
+						.tag(KEY_ENV_TYPE, envType)
 						.addField(TestStartEndMeasurement.Fields.duration, "0")
 						.build());
 
@@ -168,6 +175,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 							.tag(KEY_LG_NAME, loadGenerator)
 							.tag(KEY_BUILD, buildId)
 							.tag(KEY_TEST_TYPE, testType)
+							.tag(KEY_ENV_TYPE, envType)
 							.addField(TestStartEndMeasurement.Fields.duration, String.valueOf(testDuration))
 							.build());
 		} catch (InfluxDBException e) {
@@ -257,6 +265,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		builder.addField(VirtualUsersMeasurement.Fields.FINISHED_THREADS, finishedThreads);
 		builder.tag(KEY_PROJECT_NAME, projectName);
         builder.tag(KEY_LG_NAME, loadGenerator);
+        builder.tag(KEY_ENV_TYPE, envType);
         builder.tag(KEY_BUILD, buildId);
   		influxDB.write(influxDBConfig.getInfluxDatabase(), influxDBConfig.getInfluxRetentionPolicy(), builder.build());
 	}
