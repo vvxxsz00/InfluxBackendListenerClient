@@ -18,7 +18,7 @@ public interface RequestMeasurement {
 	 	String REQUEST_BYTES = "requestBytes"; // Request bytes field.
 		String RESPONSE_TIME = "responseTime"; // Response time field.
 		String RESPONSE_BYTES = "responseBytes"; // Response bytes field.
-		String RESPONSE_LATENCY = "responseLatency"; // Response code field.
+		String CONNECT_TIME = "connectTime"; // Connect time field.
 		String THREAD_NAME = "threadName"; //Thread name field
 		String ERROR_COUNT = "errorCount"; //Error count field.
 	}
