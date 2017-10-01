@@ -265,9 +265,10 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		builder.addField(VirtualUsersMeasurement.Fields.STARTED_THREADS, startedThreads);
 		builder.addField(VirtualUsersMeasurement.Fields.FINISHED_THREADS, finishedThreads);
 		builder.tag(KEY_PROJECT_NAME, projectName);
-        builder.tag(KEY_LG_NAME, loadGenerator);
-        builder.tag(KEY_ENV_TYPE, envType);
+		builder.tag(KEY_ENV_TYPE, envType);
+		builder.tag(KEY_TEST_TYPE, testType);
         builder.tag(KEY_BUILD, buildId);
+		builder.tag(KEY_LG_NAME, loadGenerator);
   		influxDB.write(influxDBConfig.getInfluxDatabase(), influxDBConfig.getInfluxRetentionPolicy(), builder.build());
 	}
 
@@ -282,6 +283,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	}
 
 	private void createAggregatedReport() {
+
         try {
         	String aggregateReportQuery =
                     "SELECT mean(" + RequestMeasurement.Fields.RESPONSE_TIME + ")," +
@@ -291,11 +293,15 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
                             "percentile(" + RequestMeasurement.Fields.RESPONSE_TIME + ",90) as \"percentile_90\"," +
                             "percentile(" + RequestMeasurement.Fields.RESPONSE_TIME + ",95) as \"percentile_95\"," +
                             "percentile(" + RequestMeasurement.Fields.RESPONSE_TIME + ",99) as \"percentile_99\"," +
-                            "stddev(" + RequestMeasurement.Fields.RESPONSE_TIME + ") as \"standard_deviation\"," +
-							"last("+KEY_BUILD+") as \"buildID\" " +
-                            "INTO \"" + AggregateReportMeasurement.MEASUREMENT_NAME + "\" " +
-                            "FROM \"" + RequestMeasurement.MEASUREMENT_NAME + "\" WHERE time > now() - "+testDuration+"ms " +
-							"GROUP BY \"" + RequestMeasurement.Tags.REQUEST_NAME + "\"," + "\""+KEY_BUILD+"\"";
+                            "stddev(" + RequestMeasurement.Fields.RESPONSE_TIME + ") as \"standard_deviation\" " +
+							"INTO \"" + AggregateReportMeasurement.MEASUREMENT_NAME + "\" " +
+                            "FROM \"" + RequestMeasurement.MEASUREMENT_NAME + "\"" +
+							"WHERE \"projectName\"='"+ projectName +"' AND \"envType\"='"+ envType +"' AND time > now() - "+testDuration+"ms " +
+							"GROUP BY \"" + RequestMeasurement.Tags.REQUEST_NAME + "\"," +
+							          "\"" + KEY_BUILD + "\"," +
+							          "\"" + KEY_PROJECT_NAME + "\"," +
+							          "\"" + KEY_ENV_TYPE + "\"," +
+							          "\"" + KEY_TEST_TYPE + "\"";
 			//LOGGER.info(aggregateReportQuery);
 			Query query = new Query(aggregateReportQuery, influxDBConfig.getInfluxDatabase());
             influxDB.query(query);
@@ -311,8 +317,5 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	private int getUniqueNumberForTheSamplerThread() {
 		return randomNumberGenerator.nextInt(ONE_MS_IN_NANOSECONDS);
 	}
-
-
-
 }
 
