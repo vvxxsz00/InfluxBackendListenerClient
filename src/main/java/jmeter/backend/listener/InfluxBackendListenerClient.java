@@ -301,7 +301,8 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 							          "\"" + KEY_BUILD + "\"," +
 							          "\"" + KEY_PROJECT_NAME + "\"," +
 							          "\"" + KEY_ENV_TYPE + "\"," +
-							          "\"" + KEY_TEST_TYPE + "\"";
+							          "\"" + KEY_TEST_TYPE + "\"," +
+							          "\"" + KEY_LG_NAME + "\"";
 			//LOGGER.info(aggregateReportQuery);
 			Query query = new Query(aggregateReportQuery, influxDBConfig.getInfluxDatabase());
             influxDB.query(query);
