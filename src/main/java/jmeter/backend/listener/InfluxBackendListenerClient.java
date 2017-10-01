@@ -296,7 +296,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
                             "stddev(" + RequestMeasurement.Fields.RESPONSE_TIME + ") as \"standard_deviation\" " +
 							"INTO \"" + AggregateReportMeasurement.MEASUREMENT_NAME + "\" " +
                             "FROM \"" + RequestMeasurement.MEASUREMENT_NAME + "\"" +
-							"WHERE \"projectName\"='"+ projectName +"' AND \"envType\"='"+ envType +"' AND time > now() - "+testDuration+"ms " +
+							"WHERE \"projectName\"='"+ projectName +"' AND \"envType\"='"+ envType +"' AND \"loadGenerator\"='"+ loadGenerator +"' AND time > now() - "+testDuration+"ms " +
 							"GROUP BY \"" + RequestMeasurement.Tags.REQUEST_NAME + "\"," +
 							          "\"" + KEY_BUILD + "\"," +
 							          "\"" + KEY_PROJECT_NAME + "\"," +
