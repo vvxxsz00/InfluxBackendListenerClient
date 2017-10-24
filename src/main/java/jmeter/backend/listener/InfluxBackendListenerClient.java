@@ -6,7 +6,6 @@ import org.apache.jmeter.config.Arguments;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.threads.JMeterContextService;
 import org.apache.jmeter.threads.JMeterContextService.ThreadCounts;
-import org.apache.jmeter.util.Calculator;
 import org.apache.jmeter.visualizers.backend.AbstractBackendListenerClient;
 import org.apache.jmeter.visualizers.backend.BackendListenerContext;
 import org.apache.jorphan.logging.LoggingManager;
@@ -80,24 +79,24 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	public void handleSampleResults(List<SampleResult> sampleResults, BackendListenerContext context) {
 		for (SampleResult sampleResult : sampleResults) {
 			getUserMetrics().add(sampleResult);
-			Calculator calc = new Calculator(sampleResult.getSampleLabel());
-			calc.addSample(sampleResult);
-			double rate = calc.getRate();
-
-			if (Double.compare(rate,Double.MAX_VALUE)==0){
-				String abc = "#N/A";
-				return;
-			}
-			String unit = "sec";
-			if (rate < 1.0) {
-				rate *= 60.0;
-				unit = "min";
-			}
-			if (rate < 1.0) {
-				rate *= 60.0;
-				unit = "hour";
-			}
-			String abc = rate + "/" + unit;
+//			Calculator calc = new Calculator(sampleResult.getSampleLabel());
+//			calc.addSample(sampleResult);
+//			double rate = calc.getRate();
+//
+//			if (Double.compare(rate,Double.MAX_VALUE)==0){
+//				String abc = "#N/A";
+//				return;
+//			}
+//			String unit = "sec";
+//			if (rate < 1.0) {
+//				rate *= 60.0;
+//				unit = "min";
+//			}
+//			if (rate < 1.0) {
+//				rate *= 60.0;
+//				unit = "hour";
+//			}
+//			String abc = rate + "/" + unit;
 
 			if ((null != regexForSamplerList && sampleResult.getSampleLabel().matches(regexForSamplerList)) || samplersToFilter.contains(sampleResult.getSampleLabel())) {
 				Point point = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis() * ONE_MS_IN_NANOSECONDS + getUniqueNumberForTheSamplerThread(), TimeUnit.NANOSECONDS)
@@ -108,7 +107,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 						.addField(RequestMeasurement.Fields.REQUEST_BYTES, sampleResult.getSentBytes())
 						.addField(RequestMeasurement.Fields.CONNECT_TIME, sampleResult.getConnectTime())
 						.addField(RequestMeasurement.Fields.THREAD_NAME, sampleResult.getThreadName())
-						.addField(RequestMeasurement.Fields.TPS_RATE, abc)
+//						.addField(RequestMeasurement.Fields.TPS_RATE, abc)
 						.tag(KEY_PROJECT_NAME, projectName)
 						.tag(KEY_ENV_TYPE, envType)
 						.tag(KEY_TEST_TYPE, testType)
@@ -316,8 +315,8 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
                             "percentile(" + RequestMeasurement.Fields.RESPONSE_TIME + ",95) as \"aggregate_report_95%_line\"," +
                             "percentile(" + RequestMeasurement.Fields.RESPONSE_TIME + ",99) as \"aggregate_report_99%_line\"," +
                             "stddev(" + RequestMeasurement.Fields.RESPONSE_TIME + ") as \"aggregate_report_stddev\"," +
-							"(sum("+RequestMeasurement.Fields.ERROR_COUNT+")/count("+RequestMeasurement.Fields.RESPONSE_TIME+"))*100 as \"aggregate_report_error%\","+
-							"last(" + RequestMeasurement.Fields.TPS_RATE + ") as \"aggregate_report_rate\" " +
+							"(sum("+RequestMeasurement.Fields.ERROR_COUNT+")/count("+RequestMeasurement.Fields.RESPONSE_TIME+"))*100 as \"aggregate_report_error%\""+
+//							"last(" + RequestMeasurement.Fields.TPS_RATE + ") as \"aggregate_report_rate\" " +
 							"INTO \"" + AggregateReportMeasurement.MEASUREMENT_NAME + "\" " +
                             "FROM \"" + RequestMeasurement.MEASUREMENT_NAME + "\"" +
 							"WHERE \"projectName\"='"+ projectName +"' AND \"envType\"='"+ envType +"' AND \"loadGenerator\"='"+ loadGenerator +"' AND time > '"+TimeUtil.toInfluxDBTimeFormat(testStart)+"' " +
