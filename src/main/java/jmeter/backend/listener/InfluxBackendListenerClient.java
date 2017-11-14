@@ -204,9 +204,6 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 			LOGGER.error("Error in tearDown",e);
 		}
 
-        if (context.getBooleanParameter(KEY_CREATE_AGGREGATED_REPORT, true)) {
-            createAggregatedReport();
-        }
 		influxDB.disableBatch();
 		try {
 			scheduler.awaitTermination(30, TimeUnit.SECONDS);
@@ -217,6 +214,10 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 
 		samplersToFilter.clear();
 		super.teardownTest(context);
+
+		if (context.getBooleanParameter(KEY_CREATE_AGGREGATED_REPORT, true)) {
+			createAggregatedReport();
+		}
 	}
 
 	/**
@@ -319,7 +320,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 //							"last(" + RequestMeasurement.Fields.TPS_RATE + ") as \"aggregate_report_rate\" " +
 							"INTO \"" + AggregateReportMeasurement.MEASUREMENT_NAME + "\" " +
                             "FROM \"" + RequestMeasurement.MEASUREMENT_NAME + "\"" +
-							"WHERE \"projectName\"='"+ projectName +"' AND \"envType\"='"+ envType +"' AND \"loadGenerator\"='"+ loadGenerator +"' AND time > '"+TimeUtil.toInfluxDBTimeFormat(testStart)+"' " +
+							"WHERE \"projectName\"='"+ projectName +"' AND \"envType\"='"+ envType +"' AND \"testType\"='"+ testType +"' AND \"loadGenerator\"='"+ loadGenerator +"' AND time > '"+TimeUtil.toInfluxDBTimeFormat(testStart)+"' " +
 							"GROUP BY \"" + RequestMeasurement.Tags.REQUEST_NAME + "\"," +
 							          "\"" + KEY_BUILD + "\"," +
 							          "\"" + KEY_PROJECT_NAME + "\"," +
@@ -342,4 +343,3 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		return randomNumberGenerator.nextInt(ONE_MS_IN_NANOSECONDS);
 	}
 }
-
