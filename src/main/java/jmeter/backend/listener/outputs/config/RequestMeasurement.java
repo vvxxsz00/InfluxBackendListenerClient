@@ -15,7 +15,8 @@ public interface RequestMeasurement {
 	}
 
 	 interface Fields {
-//	 	String TPS_RATE = "tpsRate"; //TPS rate per transaction
+	 	String NETWORK_RATE = "networkRate"; //Network Throughput in kilobytes / second
+	 	String TPS_RATE = "tpsRate"; //TPS rate per transaction
 	 	String REQUEST_BYTES = "requestBytes"; // Request bytes field.
 		String RESPONSE_TIME = "responseTime"; // Response time field.
 		String RESPONSE_BYTES = "responseBytes"; // Response bytes field.

@@ -6,6 +6,7 @@ import org.apache.jmeter.config.Arguments;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.threads.JMeterContextService;
 import org.apache.jmeter.threads.JMeterContextService.ThreadCounts;
+import org.apache.jmeter.visualizers.SamplingStatCalculator;
 import org.apache.jmeter.visualizers.backend.AbstractBackendListenerClient;
 import org.apache.jmeter.visualizers.backend.BackendListenerContext;
 import org.apache.jorphan.logging.LoggingManager;
@@ -17,13 +18,8 @@ import org.influxdb.dto.Point.Builder;
 import org.influxdb.dto.Query;
 import org.influxdb.impl.TimeUtil;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 
 /**
  * Current composite Backend listener writes JMeter metrics both to InfluxDB or ElasticSearch directly.
@@ -66,39 +62,54 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	private InfluxDB influxDB; // influxDB client.
 	private Random randomNumberGenerator; // Random number generator
 	private boolean isInfluxDBPingOk;
+	private final Map<String, SamplingStatCalculator> tableRows = new ConcurrentHashMap<>();
+
+
+
     /**
      * -----------------------------------------------------
      * ---------INFLUXDB Parameter Keys Block End---------
      * -----------------------------------------------------
      */
 
-
 	/**
 	 * Processes sampler results.
 	 */
 	public void handleSampleResults(List<SampleResult> sampleResults, BackendListenerContext context) {
 		for (SampleResult sampleResult : sampleResults) {
-			getUserMetrics().add(sampleResult);
-//			Calculator calc = new Calculator(sampleResult.getSampleLabel());
-//			calc.addSample(sampleResult);
-//			double rate = calc.getRate();
-//
-//			if (Double.compare(rate,Double.MAX_VALUE)==0){
-//				String abc = "#N/A";
-//				return;
-//			}
-//			String unit = "sec";
-//			if (rate < 1.0) {
-//				rate *= 60.0;
-//				unit = "min";
-//			}
-//			if (rate < 1.0) {
-//				rate *= 60.0;
-//				unit = "hour";
-//			}
-//			String abc = rate + "/" + unit;
 
+
+			getUserMetrics().add(sampleResult);
 			if ((null != regexForSamplerList && sampleResult.getSampleLabel().matches(regexForSamplerList)) || samplersToFilter.contains(sampleResult.getSampleLabel())) {
+				SamplingStatCalculator calc = tableRows.computeIfAbsent(sampleResult.getSampleLabel(), label -> {
+					SamplingStatCalculator newRow = new SamplingStatCalculator(label);
+					return newRow;
+				});
+				synchronized(calc) {
+            /**
+             * Sync is needed because multiple threads can update the counts.
+             */
+            	calc.addSample(sampleResult);
+				}
+				double rate = calc.getRate();
+
+				if (Double.compare(rate,Double.MAX_VALUE)==0){
+				String rateAsString = "#N/A";
+				return;
+			}
+			String unit = "sec";
+			if (rate < 1.0) {
+				rate *= 60.0;
+				unit = "min";
+			}
+			if (rate < 1.0) {
+				rate *= 60.0;
+				unit = "hour";
+			}
+
+			String rateAsString = (double)Math.round(rate*100)/100 + "/" + unit;
+
+			String networkRate = (double)Math.round(calc.getKBPerSecond()*100)/100 + "KB/s";
 				Point point = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis() * ONE_MS_IN_NANOSECONDS + getUniqueNumberForTheSamplerThread(), TimeUnit.NANOSECONDS)
 						.tag(RequestMeasurement.Tags.REQUEST_NAME, sampleResult.getSampleLabel())
 						.addField(RequestMeasurement.Fields.ERROR_COUNT, sampleResult.getErrorCount())
@@ -107,7 +118,8 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 						.addField(RequestMeasurement.Fields.REQUEST_BYTES, sampleResult.getSentBytes())
 						.addField(RequestMeasurement.Fields.CONNECT_TIME, sampleResult.getConnectTime())
 						.addField(RequestMeasurement.Fields.THREAD_NAME, sampleResult.getThreadName())
-//						.addField(RequestMeasurement.Fields.TPS_RATE, abc)
+						.addField(RequestMeasurement.Fields.TPS_RATE, rateAsString)
+						.addField(RequestMeasurement.Fields.NETWORK_RATE,networkRate)
 						.tag(KEY_PROJECT_NAME, projectName)
 						.tag(KEY_ENV_TYPE, envType)
 						.tag(KEY_TEST_TYPE, testType)
@@ -316,8 +328,9 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
                             "percentile(" + RequestMeasurement.Fields.RESPONSE_TIME + ",95) as \"aggregate_report_95%_line\"," +
                             "percentile(" + RequestMeasurement.Fields.RESPONSE_TIME + ",99) as \"aggregate_report_99%_line\"," +
                             "stddev(" + RequestMeasurement.Fields.RESPONSE_TIME + ") as \"aggregate_report_stddev\"," +
-							"(sum("+RequestMeasurement.Fields.ERROR_COUNT+")/count("+RequestMeasurement.Fields.RESPONSE_TIME+"))*100 as \"aggregate_report_error%\""+
-//							"last(" + RequestMeasurement.Fields.TPS_RATE + ") as \"aggregate_report_rate\" " +
+							"(sum("+RequestMeasurement.Fields.ERROR_COUNT+")/count("+RequestMeasurement.Fields.RESPONSE_TIME+"))*100 as \"aggregate_report_error%\","+
+							"last(" + RequestMeasurement.Fields.TPS_RATE + ") as \"aggregate_report_rate\"," +
+							"last(" + RequestMeasurement.Fields.NETWORK_RATE + ") as \"aggregate_report_bandwidth\" " +
 							"INTO \"" + AggregateReportMeasurement.MEASUREMENT_NAME + "\" " +
                             "FROM \"" + RequestMeasurement.MEASUREMENT_NAME + "\"" +
 							"WHERE \"projectName\"='"+ projectName +"' AND \"envType\"='"+ envType +"' AND \"testType\"='"+ testType +"' AND \"loadGenerator\"='"+ loadGenerator +"' AND time > '"+TimeUtil.toInfluxDBTimeFormat(testStart)+"' " +
