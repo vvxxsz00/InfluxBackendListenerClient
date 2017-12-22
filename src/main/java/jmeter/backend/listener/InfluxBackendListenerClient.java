@@ -108,9 +108,8 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 			}
 
 			String rateAsString = (double)Math.round(rate*100)/100 + "/" + unit;
-
 			String networkRate = (double)Math.round(calc.getKBPerSecond()*100)/100 + "KB/s";
-				Point point = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis() * ONE_MS_IN_NANOSECONDS + getUniqueNumberForTheSamplerThread(), TimeUnit.NANOSECONDS)
+				Point point = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
 						.tag(RequestMeasurement.Tags.REQUEST_NAME, sampleResult.getSampleLabel())
 						.addField(RequestMeasurement.Fields.ERROR_COUNT, sampleResult.getErrorCount())
 						.tag(RequestMeasurement.Tags.RESPONSE_CODE, sampleResult.getResponseCode())
@@ -140,7 +139,6 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
         arguments.addArgument(KEY_LG_NAME, "Load_Generator_Name");
         arguments.addArgument(KEY_BUILD, "null");
         arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_HOST, "localhost");
-//        arguments.addArgument(InfluxDBConfig.KEY_INFLUX_PROTOCOL, "http");
         arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_PORT, Integer.toString(InfluxDBConfig.DEFAULT_PORT));
         arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_USER, "db_username");
         arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_PASSWORD, "");
@@ -149,17 +147,6 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
         arguments.addArgument(KEY_SAMPLERS_LIST, ".*");
         arguments.addArgument(KEY_USE_REGEX_FOR_SAMPLER_LIST, "true");
         arguments.addArgument(KEY_CREATE_AGGREGATED_REPORT, "true");
-//        arguments.addArgument(ElasticSearchConfig.DELIMITER, ElasticSearchConfig.DELIMITER);
-//        arguments.addArgument(ElasticSearchConfig.PARAMETER_NAME_ELASTICSEARCH_PROTOCOL, "http");
-//        arguments.addArgument(ElasticSearchConfig.PARAMETER_NAME_ELASTICSEARCH_HOST, null);
-//        arguments.addArgument(ElasticSearchConfig.PARAMETER_NAME_ELASTICSEARCH_PORT, "9200");
-//        arguments.addArgument(ElasticSearchConfig.PARAMETER_NAME_ELASTICSEARCH_USER, null);
-//        arguments.addArgument(ElasticSearchConfig.PARAMETER_NAME_ELASTICSEARCH_PASSWORD, null);
-//        arguments.addArgument(ElasticSearchConfig.PARAMETER_NAME_ELASTICSEARCH_INDEX, null);
-//        arguments.addArgument(ElasticSearchConfig.PARAMETER_NAME_ELASTICSEARCH_TYPE, null);
-//        arguments.addArgument(ElasticSearchConfig.PARAMETER_NAME_TIMEZONE_ID, "GMT");
-//        arguments.addArgument(ElasticSearchConfig.PARAMETER_NAME_RESULT_EXCLUDED_ATTRIBUTES, null);
-//        arguments.addArgument(ElasticSearchConfig.PARAMETER_NAME_ELASTICSEARCH_CONN_SSL_TRUST_ALL_CERTS, "false");
         return arguments;
 }
 
@@ -177,7 +164,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		influxDB.write(
 				influxDBConfig.getInfluxDatabase(),
 				influxDBConfig.getInfluxRetentionPolicy(),
-				Point.measurement(TestStartEndMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+				Point.measurement(TestStartEndMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis()/1000, TimeUnit.SECONDS)
 						.tag(TestStartEndMeasurement.Tags.TYPE, TestStartEndMeasurement.Values.STARTED)
 						.tag(KEY_PROJECT_NAME, projectName)
 					    .tag(KEY_LG_NAME, loadGenerator)
@@ -203,7 +190,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 			influxDB.write(
 					influxDBConfig.getInfluxDatabase(),
 					influxDBConfig.getInfluxRetentionPolicy(),
-					Point.measurement(TestStartEndMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+					Point.measurement(TestStartEndMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis()/1000, TimeUnit.SECONDS)
 							.tag(TestStartEndMeasurement.Tags.TYPE, TestStartEndMeasurement.Values.FINISHED)
 							.tag(KEY_PROJECT_NAME, projectName)
 							.tag(KEY_LG_NAME, loadGenerator)
@@ -349,10 +336,10 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
             LOGGER.error("!!! Aggregate Report creation in InfluxDB is Failed !!!", e);
         }
     }
-	/**
-	 * Try to get a unique number for the sampler thread
-	 */
-	private int getUniqueNumberForTheSamplerThread() {
-		return randomNumberGenerator.nextInt(ONE_MS_IN_NANOSECONDS);
-	}
+//	/**
+//	 * Try to get a unique number for the sampler thread
+//	 */
+//	private int getUniqueNumberForTheSamplerThread() {
+//		return randomNumberGenerator.nextInt(ONE_MS_IN_NANOSECONDS);
+//	}
 }
