@@ -313,7 +313,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 							"last(" + RequestMeasurement.Fields.NETWORK_RATE + ") as \"aggregate_report_bandwidth\" " +
 							"INTO \"" + AggregateReportMeasurement.MEASUREMENT_NAME + "\" " +
                             "FROM \"" + RequestMeasurement.MEASUREMENT_NAME + "\"" +
-							"WHERE \"projectName\"='"+ projectName +"' AND \"envType\"='"+ envType +"' AND \"testType\"='"+ testType +"' AND \"loadGenerator\"='"+ loadGenerator +"' AND time > '"+TimeUtil.toInfluxDBTimeFormat(testStart)+"s' " +
+							"WHERE \"projectName\"='"+ projectName +"' AND \"envType\"='"+ envType +"' AND \"testType\"='"+ testType +"' AND \"loadGenerator\"='"+ loadGenerator +"' AND time > '"+TimeUtil.toInfluxDBTimeFormat(testStart)+"' " +
 							"GROUP BY \"" + RequestMeasurement.Tags.REQUEST_NAME + "\"," +
 							          "\"" + KEY_BUILD + "\"," +
 							          "\"" + KEY_PROJECT_NAME + "\"," +
