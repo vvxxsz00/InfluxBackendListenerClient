@@ -19,7 +19,12 @@ import org.influxdb.dto.Query;
 import org.influxdb.impl.TimeUtil;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+
 
 /**
  * Current composite Backend listener writes JMeter metrics both to InfluxDB or ElasticSearch directly.
@@ -46,6 +51,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	private long testStart;
 	private int testDuration;
 
+
 	private static final String SEPARATOR = ";";
 	private static final int ONE_MS_IN_NANOSECONDS = 1000000;
 
@@ -66,6 +72,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 
 
 
+
     /**
      * -----------------------------------------------------
      * ---------INFLUXDB Parameter Keys Block End---------
@@ -78,46 +85,33 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	public void handleSampleResults(List<SampleResult> sampleResults, BackendListenerContext context) {
 		for (SampleResult sampleResult : sampleResults) {
 
-
 			getUserMetrics().add(sampleResult);
 			if ((null != regexForSamplerList && sampleResult.getSampleLabel().matches(regexForSamplerList)) || samplersToFilter.contains(sampleResult.getSampleLabel())) {
 				SamplingStatCalculator calc = tableRows.computeIfAbsent(sampleResult.getSampleLabel(), label -> {
 					SamplingStatCalculator newRow = new SamplingStatCalculator(label);
 					return newRow;
 				});
-				synchronized(calc) {
             /**
              * Sync is needed because multiple threads can update the counts.
              */
+            synchronized(calc) {
             	calc.addSample(sampleResult);
 				}
-				double rate = calc.getRate();
 
-				if (Double.compare(rate,Double.MAX_VALUE)==0){
-				String rateAsString = "#N/A";
-				return;
-			}
-			String unit = "sec";
-			if (rate < 1.0) {
-				rate *= 60.0;
-				unit = "min";
-			}
-			if (rate < 1.0) {
-				rate *= 60.0;
-				unit = "hour";
-			}
-
-			String rateAsString = (double)Math.round(rate*100)/100 + "/" + unit;
-			String networkRate = (double)Math.round(calc.getKBPerSecond()*100)/100 + "KB/s";
+            /**
+            *  TPS rate metric is being written in requests/transactions per second; Network Rate is being written in KiloBytes per second
+            */
+			double tpsRate = (double)Math.round(calc.getRate()*100)/100;
+			double networkRate = (double)Math.round(calc.getKBPerSecond()*100)/100;
 				Point point = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
 						.tag(RequestMeasurement.Tags.REQUEST_NAME, sampleResult.getSampleLabel())
 						.addField(RequestMeasurement.Fields.ERROR_COUNT, sampleResult.getErrorCount())
 						.tag(RequestMeasurement.Tags.RESPONSE_CODE, sampleResult.getResponseCode())
-						.addField(RequestMeasurement.Fields.RESPONSE_BYTES, sampleResult.getBytes())
+						.addField(RequestMeasurement.Fields.RESPONSE_BYTES, sampleResult.getBytesAsLong())
 						.addField(RequestMeasurement.Fields.REQUEST_BYTES, sampleResult.getSentBytes())
 						.addField(RequestMeasurement.Fields.CONNECT_TIME, sampleResult.getConnectTime())
 						.addField(RequestMeasurement.Fields.THREAD_NAME, sampleResult.getThreadName())
-						.addField(RequestMeasurement.Fields.TPS_RATE, rateAsString)
+						.addField(RequestMeasurement.Fields.TPS_RATE, tpsRate)
 						.addField(RequestMeasurement.Fields.NETWORK_RATE,networkRate)
 						.tag(KEY_PROJECT_NAME, projectName)
 						.tag(KEY_ENV_TYPE, envType)
@@ -156,11 +150,12 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		envType = context.getParameter(KEY_ENV_TYPE, "null");
 		randomNumberGenerator = new Random();
 		projectName = context.getParameter(KEY_PROJECT_NAME, "Test_Project");
-        loadGenerator = context.getParameter(KEY_LG_NAME, "loadGenerator");
-        buildId = context.getParameter(KEY_BUILD, "null");
+		loadGenerator = context.getParameter(KEY_LG_NAME, "loadGenerator");
+		buildId = context.getParameter(KEY_BUILD, "null");
 
 		setupInfluxClient(context);
 		testStart = System.currentTimeMillis();
+
 		influxDB.write(
 				influxDBConfig.getInfluxDatabase(),
 				influxDBConfig.getInfluxRetentionPolicy(),
@@ -173,19 +168,17 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 						.tag(KEY_ENV_TYPE, envType)
 						.addField(TestStartEndMeasurement.Fields.duration, "0")
 						.build());
-
 		parseSamplers(context);
 		scheduler = Executors.newScheduledThreadPool(1);
-
 		scheduler.scheduleAtFixedRate(this, 1, 1, TimeUnit.SECONDS);
 	}
 
 	@Override
 	public void teardownTest(BackendListenerContext context) throws Exception {
+
 		LOGGER.info("Shutting down scheduler...");
 		scheduler.shutdown();
 		testDuration = (int)(System.currentTimeMillis() - testStart);
-
 		try {
 			influxDB.write(
 					influxDBConfig.getInfluxDatabase(),
@@ -198,6 +191,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 							.tag(KEY_TEST_TYPE, testType)
 							.tag(KEY_ENV_TYPE, envType)
 							.addField(TestStartEndMeasurement.Fields.duration, String.valueOf(testDuration))
+
 							.build());
 		} catch (InfluxDBException e) {
 			LOGGER.error("Error in tearDown",e);
@@ -226,7 +220,8 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		try {
 			ThreadCounts tc = JMeterContextService.getThreadCounts();
 			addVirtualUsersMetrics(getUserMetrics().getMinActiveThreads(), getUserMetrics().getMeanActiveThreads(), getUserMetrics().getMaxActiveThreads(), tc.startedThreads, tc.finishedThreads);
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			LOGGER.error("Failed writing to InfluxDB", e);
 		}
 	}
@@ -249,9 +244,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 			isInfluxDBPingOk = false;
 			LOGGER.error("------InfluxDB ping test: Failed------");
 			LOGGER.info(ExceptionUtils.getStackTrace(e));
-
 		}
-
 	}
 
 	/**
@@ -276,7 +269,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	}
 
 	/**
-	 * Write thread metrics.
+	 * Writes thread metrics.
 	 */
 	private void addVirtualUsersMetrics(int minActiveThreads, int meanActiveThreads, int maxActiveThreads, int startedThreads, int finishedThreads) {
 		Builder builder = Point.measurement(VirtualUsersMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
@@ -320,7 +313,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 							"last(" + RequestMeasurement.Fields.NETWORK_RATE + ") as \"aggregate_report_bandwidth\" " +
 							"INTO \"" + AggregateReportMeasurement.MEASUREMENT_NAME + "\" " +
                             "FROM \"" + RequestMeasurement.MEASUREMENT_NAME + "\"" +
-							"WHERE \"projectName\"='"+ projectName +"' AND \"envType\"='"+ envType +"' AND \"testType\"='"+ testType +"' AND \"loadGenerator\"='"+ loadGenerator +"' AND time > '"+TimeUtil.toInfluxDBTimeFormat(testStart)+"' " +
+							"WHERE \"projectName\"='"+ projectName +"' AND \"envType\"='"+ envType +"' AND \"testType\"='"+ testType +"' AND \"loadGenerator\"='"+ loadGenerator +"' AND time > '"+TimeUtil.toInfluxDBTimeFormat(testStart)+"s' " +
 							"GROUP BY \"" + RequestMeasurement.Tags.REQUEST_NAME + "\"," +
 							          "\"" + KEY_BUILD + "\"," +
 							          "\"" + KEY_PROJECT_NAME + "\"," +
@@ -336,10 +329,4 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
             LOGGER.error("!!! Aggregate Report creation in InfluxDB is Failed !!!", e);
         }
     }
-//	/**
-//	 * Try to get a unique number for the sampler thread
-//	 */
-//	private int getUniqueNumberForTheSamplerThread() {
-//		return randomNumberGenerator.nextInt(ONE_MS_IN_NANOSECONDS);
-//	}
 }
