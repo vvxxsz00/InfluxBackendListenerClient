@@ -21,12 +21,6 @@ import org.influxdb.impl.TimeUtil;
 import java.util.*;
 import java.util.concurrent.*;
 
-/**
- * Current composite Backend listener writes JMeter metrics both to InfluxDB or ElasticSearch directly.
- * It has been designed as merge of two backend listener implementations:
- * - Elasticsearch Backend listener by Vadim Volkov (https://github.com/vadim-klimov/apache-jmeter-listener-elasticsearch)
- * - InfluxDB Backend listener by NovaTecConsulting (https://github.com/NovaTecConsulting/JMeter-InfluxDB-Writer/releases)
- */
 public class InfluxBackendListenerClient extends AbstractBackendListenerClient implements Runnable {
 
     private static final org.apache.log.Logger LOGGER = LoggingManager.getLoggerForClass(); // Logger
@@ -63,14 +57,6 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	private Random randomNumberGenerator; // Random number generator
 	private boolean isInfluxDBPingOk;
 	private final Map<String, SamplingStatCalculator> tableRows = new ConcurrentHashMap<>();
-
-
-
-    /**
-     * -----------------------------------------------------
-     * ---------INFLUXDB Parameter Keys Block End---------
-     * -----------------------------------------------------
-     */
 
 	/**
 	 * Processes sampler results.
@@ -336,10 +322,4 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
             LOGGER.error("!!! Aggregate Report creation in InfluxDB is Failed !!!", e);
         }
     }
-//	/**
-//	 * Try to get a unique number for the sampler thread
-//	 */
-//	private int getUniqueNumberForTheSamplerThread() {
-//		return randomNumberGenerator.nextInt(ONE_MS_IN_NANOSECONDS);
-//	}
 }
