@@ -12,7 +12,3 @@ General changes in comparison to original project:
 - Initial ping of InfluxDB host before data streaming
 - InfluxDBException support
 - Aggregate Report data generation as a separate InfluxDB measurement - it's useful for builds' test results comparisson.
-
-Future plans:
-- HTTPS connection protocol support
-- Streaming errors data into ElasticSearch
