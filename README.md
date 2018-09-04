@@ -1,4 +1,3 @@
-# CompositeBackendListener
 This project is a fork of https://github.com/NovaTecConsulting/JMeter-InfluxDB-Writer project
 
 This JMeter Plugin allows to write load test data on-the-fly to influxDB and to generate Aggregate Report data as separate InfluxDB measurement.
