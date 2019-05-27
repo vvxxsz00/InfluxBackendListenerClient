@@ -45,7 +45,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	private int testDuration;
 
 	private static final String SEPARATOR = ";";
-	private static final int ONE_MS_IN_MICROSECOND = 1000;
+	private static final int ONE_MS_IN_NANOSECONDS = 1000000;
 
 	private Random randomNumberGenerator = new Random();
 
@@ -100,7 +100,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 			double networkRate = (double)Math.round(calc.getKBPerSecond()*100)/100;
 
 			Builder builder = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(
-					sampleResult.getTimeStamp() * ONE_MS_IN_MICROSECOND + getUniqueNumberForTheSamplerThread(), TimeUnit.MICROSECONDS)
+					sampleResult.getTimeStamp() * ONE_MS_IN_NANOSECONDS + getUniqueNumberForTheSamplerThread(), TimeUnit.NANOSECONDS)
 						.tag(RequestMeasurement.Tags.REQUEST_NAME, sampleResult.getSampleLabel())
 						.addField(RequestMeasurement.Fields.ERROR_COUNT, sampleResult.getErrorCount())
 						.tag(RequestMeasurement.Tags.RESPONSE_CODE, sampleResult.getResponseCode())
@@ -350,6 +350,6 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
     }
 
 	private int getUniqueNumberForTheSamplerThread() {
-		return randomNumberGenerator.nextInt(ONE_MS_IN_MICROSECOND);
+		return randomNumberGenerator.nextInt(ONE_MS_IN_NANOSECONDS);
 	}
 }
