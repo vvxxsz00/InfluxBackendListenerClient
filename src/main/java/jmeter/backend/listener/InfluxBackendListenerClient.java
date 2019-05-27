@@ -39,12 +39,15 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 
 	private static final String KEY_USE_REGEX_FOR_SAMPLER_LIST = "useRegexForSamplerList";
 	private static final String KEY_SAMPLERS_LIST = "samplersList";
+	private static final String KEY_RECORD_SUB_SAMPLES = "recordSubSamples";
 	private static final String KEY_CREATE_AGGREGATED_REPORT = "createAggregatedReport";
 	private long testStart;
 	private int testDuration;
 
 	private static final String SEPARATOR = ";";
-	private static final int ONE_MS_IN_NANOSECONDS = 1000000;
+	private static final int ONE_MS_IN_MICROSECOND = 1000;
+
+	private Random randomNumberGenerator = new Random();
 
 	private ScheduledExecutorService scheduler; //Scheduler for periodic metric aggregation.
 	private String testType; // Test type.
@@ -61,12 +64,23 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	private final Map<String, SamplingStatCalculator> tableRows = new ConcurrentHashMap<>();
 	private LinkedHashMap<String,String> sampleGroupMap = new LinkedHashMap<>();
 	private String sampleGroup;
+	private boolean recordSubSamples;
 
 	/**
 	 * Processes sampler results.
 	 */
 	public void handleSampleResults(List<SampleResult> sampleResults, BackendListenerContext context) {
+		// Gather all the listeners
+		List<SampleResult> allSampleResults = new ArrayList<SampleResult>();
+		for (SampleResult sampleResult : sampleResults) {
+			allSampleResults.add(sampleResult);
 
+			if(recordSubSamples) {
+				for (SampleResult subResult : sampleResult.getSubResults()) {
+					allSampleResults.add(subResult);
+				}
+			}
+		}
 		for (SampleResult sampleResult : sampleResults) {
 			getUserMetrics().add(sampleResult);
 			if ((null != regexForSamplerList && sampleResult.getSampleLabel().matches(regexForSamplerList)) || samplersToFilter.contains(sampleResult.getSampleLabel())) {
@@ -85,7 +99,8 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 			double tpsRate = (double)Math.round(calc.getRate()*100)/100;
 			double networkRate = (double)Math.round(calc.getKBPerSecond()*100)/100;
 
-			Builder builder = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+			Builder builder = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(
+					sampleResult.getTimeStamp() * ONE_MS_IN_MICROSECOND + getUniqueNumberForTheSamplerThread(), TimeUnit.MICROSECONDS)
 						.tag(RequestMeasurement.Tags.REQUEST_NAME, sampleResult.getSampleLabel())
 						.addField(RequestMeasurement.Fields.ERROR_COUNT, sampleResult.getErrorCount())
 						.tag(RequestMeasurement.Tags.RESPONSE_CODE, sampleResult.getResponseCode())
@@ -133,6 +148,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
         arguments.addArgument(InfluxDBConfig.KEY_RETENTION_POLICY, InfluxDBConfig.DEFAULT_RETENTION_POLICY);
         arguments.addArgument(KEY_SAMPLERS_LIST, ".*");
         arguments.addArgument(KEY_USE_REGEX_FOR_SAMPLER_LIST, "true");
+		arguments.addArgument(KEY_RECORD_SUB_SAMPLES, "false");
         arguments.addArgument(KEY_CREATE_AGGREGATED_REPORT, "true");
         return arguments;
 }
@@ -168,6 +184,8 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		parseSamplers(context);
 		scheduler = Executors.newScheduledThreadPool(1);
 		scheduler.scheduleAtFixedRate(this, 1, 1, TimeUnit.SECONDS);
+
+		recordSubSamples = Boolean.parseBoolean(context.getParameter(KEY_RECORD_SUB_SAMPLES, "false"));
 	}
 
 	@Override
@@ -233,6 +251,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		influxDBConfig = new InfluxDBConfig(context);
 		influxDB = InfluxDBFactory.connect(influxDBConfig.getInfluxDBURL(), influxDBConfig.getInfluxUser(), influxDBConfig.getInfluxPassword());
 		influxDB.enableBatch(100, 5, TimeUnit.SECONDS);
+
 		createDatabaseIfNotExistent();
 		isInfluxDBPingOk = true;
 		LOGGER.info("++++++ InfluxDB ping test: Success ++++++");
@@ -329,4 +348,8 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
             LOGGER.error("!!! Aggregate Report creation in InfluxDB is Failed !!!", e);
         }
     }
+
+	private int getUniqueNumberForTheSamplerThread() {
+		return randomNumberGenerator.nextInt(ONE_MS_IN_MICROSECOND);
+	}
 }
