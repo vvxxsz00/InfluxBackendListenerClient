@@ -43,7 +43,6 @@ public class SampleGroupYMLProcessor {
                     }
                 }
             }
-
         }
         return reversedMap;
     }
