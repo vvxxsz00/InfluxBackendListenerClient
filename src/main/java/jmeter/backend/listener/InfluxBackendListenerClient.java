@@ -91,13 +91,27 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
             /**
              * Sync is needed because multiple threads can update the counts.
              */
-            calc.addSample(sampleResult);
+            synchronized(calc) {
+				calc.addSample(sampleResult);
+			}
+				double rate = calc.getRate();
 
-            /**
-            *  TPS rate metric is being written in requests/transactions per second; Network Rate is being written in KiloBytes per second
-            */
-			double tpsRate = (double)Math.round(calc.getRate()*100)/100;
-			double networkRate = (double)Math.round(calc.getKBPerSecond()*100)/100;
+				if (Double.compare(rate,Double.MAX_VALUE)==0){
+					String rateAsString = "#N/A";
+					return;
+				}
+				String unit = "sec";
+				if (rate < 1.0) {
+					rate *= 60.0;
+					unit = "min";
+				}
+				if (rate < 1.0) {
+					rate *= 60.0;
+					unit = "hour";
+				}
+
+				String rateAsString = (double)Math.round(rate*100)/100 + "/" + unit;
+				String networkRate = (double)Math.round(calc.getKBPerSecond()*100)/100 + "KB/s";
 
 			Builder builder = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(
 					sampleResult.getTimeStamp() * ONE_MS_IN_NANOSECONDS + getUniqueNumberForTheSamplerThread(), TimeUnit.NANOSECONDS)
@@ -108,7 +122,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 						.addField(RequestMeasurement.Fields.REQUEST_BYTES, sampleResult.getSentBytes())
 						.addField(RequestMeasurement.Fields.CONNECT_TIME, sampleResult.getConnectTime())
 						.addField(RequestMeasurement.Fields.THREAD_NAME, sampleResult.getThreadName())
-						.addField(RequestMeasurement.Fields.TPS_RATE, tpsRate)
+						.addField(RequestMeasurement.Fields.TPS_RATE, rateAsString)
 						.addField(RequestMeasurement.Fields.NETWORK_RATE,networkRate)
 						.tag(KEY_PROJECT_NAME, projectName)
 						.tag(KEY_ENV_TYPE, envType)
