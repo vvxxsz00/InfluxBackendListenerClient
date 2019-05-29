@@ -92,8 +92,8 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
              * Sync is needed because multiple threads can update the counts.
              */
             synchronized(calc) {
-				calc.addSample(sampleResult);
-			}
+            calc.addSample(sampleResult);
+            }
 
             /**
             *  TPS rate metric is being written in requests/transactions per second; Network Rate is being written in KiloBytes per second

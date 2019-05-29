@@ -1,6 +1,5 @@
 .gradle
 *.idea
-/out
 *.iml
 *.bat
 *.DS_Store
