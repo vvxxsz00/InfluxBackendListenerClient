@@ -9,7 +9,7 @@ import org.apache.jmeter.visualizers.backend.BackendListenerContext;
  */
 public class InfluxDBConfig {
 
-	public static final String DEFAULT_DATABASE = "jmeter"; //Default database name.
+	public static final String DEFAULT_DATABASE = "jmeter"; //Default database name for JMeter samplers data.
 
 	public static final String DEFAULT_RETENTION_POLICY = "autogen"; //Default retention policy name.
 

@@ -20,6 +20,9 @@ import org.influxdb.dto.Query;
 import org.influxdb.impl.TimeUtil;
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryPoolMXBean;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -41,11 +44,13 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	private static final String KEY_SAMPLERS_LIST = "samplersList";
 	private static final String KEY_RECORD_SUB_SAMPLES = "recordSubSamples";
 	private static final String KEY_CREATE_AGGREGATED_REPORT = "createAggregatedReport";
+	private static final String KEY_WRITE_LG_JVM_MONITORING = "write_LG_JVM_monitoring";
 	private long testStart;
 	private int testDuration;
 
 	private static final String SEPARATOR = ";";
 	private static final int ONE_MS_IN_NANOSECONDS = 1000000;
+	private static final int ONE_MB_IN_BYTES = 1024 * 1024;
 
 	private Random randomNumberGenerator = new Random();
 
@@ -70,6 +75,10 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	 * Processes sampler results.
 	 */
 	public void handleSampleResults(List<SampleResult> sampleResults, BackendListenerContext context) {
+		if (Boolean.parseBoolean(context.getParameter(KEY_WRITE_LG_JVM_MONITORING))) {
+			LOGGER.info("++++++LG monitoring is ON++++++");
+			writeLoadGeneratorMonirotingMetrics();
+		}
 		// Gather all the listeners
 		List<SampleResult> allSampleResults = new ArrayList<SampleResult>();
 		for (SampleResult sampleResult : sampleResults) {
@@ -81,7 +90,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 				}
 			}
 		}
-		for (SampleResult sampleResult : sampleResults) {
+		for (SampleResult sampleResult : allSampleResults) {
 			getUserMetrics().add(sampleResult);
 			if ((null != regexForSamplerList && sampleResult.getSampleLabel().matches(regexForSamplerList)) || samplersToFilter.contains(sampleResult.getSampleLabel())) {
 				SamplingStatCalculator calc = tableRows.computeIfAbsent(sampleResult.getSampleLabel(), label -> {
@@ -152,6 +161,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
         arguments.addArgument(KEY_USE_REGEX_FOR_SAMPLER_LIST, "true");
 		arguments.addArgument(KEY_RECORD_SUB_SAMPLES, "false");
         arguments.addArgument(KEY_CREATE_AGGREGATED_REPORT, "true");
+		arguments.addArgument(KEY_WRITE_LG_JVM_MONITORING, "false");
         return arguments;
 }
 
@@ -195,6 +205,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 
 		LOGGER.info("Shutting down scheduler...");
 		scheduler.shutdown();
+		addVirtualUsersMetrics(0,0,0,0,JMeterContextService.getThreadCounts().finishedThreads);
 		testDuration = (int)(System.currentTimeMillis() - testStart);
 		try {
 			influxDB.write(
@@ -302,6 +313,25 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		builder.tag(KEY_LG_NAME, loadGenerator);
   		influxDB.write(influxDBConfig.getInfluxDatabase(), influxDBConfig.getInfluxRetentionPolicy(), builder.build());
 	}
+	private void writeLoadGeneratorMonirotingMetrics(){
+
+		MemoryMXBean m = ManagementFactory.getMemoryMXBean();
+		Builder builder = Point.measurement("jmeter_jvm").time(System.currentTimeMillis()/1000, TimeUnit.SECONDS);
+		builder.tag(KEY_PROJECT_NAME, projectName);
+		builder.tag(KEY_ENV_TYPE, envType);
+		builder.tag(KEY_TEST_TYPE, testType);
+		builder.tag(KEY_BUILD, buildId);
+		builder.tag(KEY_LG_NAME, loadGenerator);
+		builder.addField("Non_Heap_max",(int)(m.getNonHeapMemoryUsage().getMax()/ONE_MB_IN_BYTES));
+		builder.addField("Non_Heap_used",(int)(m.getNonHeapMemoryUsage().getUsed()/ONE_MB_IN_BYTES));
+		builder.addField("Heap_max",(int)(m.getHeapMemoryUsage().getMax()/ONE_MB_IN_BYTES));
+		builder.addField("Heap_used",(int)(m.getHeapMemoryUsage().getUsed()/ONE_MB_IN_BYTES));
+		for (MemoryPoolMXBean pool : ManagementFactory.getMemoryPoolMXBeans()) {
+			builder.addField(pool.getName().replace(" ","_")+"_used",(int)(pool.getUsage().getUsed()/ONE_MB_IN_BYTES));
+			builder.addField(pool.getName().replace(" ","_")+"_max",(int)(pool.getUsage().getMax()/ONE_MB_IN_BYTES));
+		}
+		influxDB.write("lg_monitoring","",builder.build());
+	}
 
 	/**
 	 * Creates the configured database in influxdb if it does not exist yet.
@@ -310,6 +340,10 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		List<String> dbNames = influxDB.describeDatabases();
 		if (!dbNames.contains(influxDBConfig.getInfluxDatabase())) {
 			influxDB.createDatabase(influxDBConfig.getInfluxDatabase());
+		}
+		if (!influxDB.describeDatabases().contains("LG_monitoring")) {
+			LOGGER.info("++++++Creating database++++++");
+			influxDB.createDatabase("lg_monitoring");
 		}
 	}
 
