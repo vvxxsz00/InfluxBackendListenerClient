@@ -70,15 +70,12 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 	private LinkedHashMap<String,String> sampleGroupMap = new LinkedHashMap<>();
 	private String sampleGroup;
 	private boolean recordSubSamples;
+	private boolean write_LG_JVM_monitoring;
 
 	/**
 	 * Processes sampler results.
 	 */
 	public void handleSampleResults(List<SampleResult> sampleResults, BackendListenerContext context) {
-		if (Boolean.parseBoolean(context.getParameter(KEY_WRITE_LG_JVM_MONITORING))) {
-			LOGGER.info("++++++LG monitoring is ON++++++");
-			writeLoadGeneratorMonirotingMetrics();
-		}
 		// Gather all the listeners
 		List<SampleResult> allSampleResults = new ArrayList<SampleResult>();
 		for (SampleResult sampleResult : sampleResults) {
@@ -160,7 +157,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
         arguments.addArgument(KEY_SAMPLERS_LIST, ".*");
         arguments.addArgument(KEY_USE_REGEX_FOR_SAMPLER_LIST, "true");
 		arguments.addArgument(KEY_RECORD_SUB_SAMPLES, "false");
-        arguments.addArgument(KEY_CREATE_AGGREGATED_REPORT, "true");
+        arguments.addArgument(KEY_CREATE_AGGREGATED_REPORT, "false");
 		arguments.addArgument(KEY_WRITE_LG_JVM_MONITORING, "false");
         return arguments;
 }
@@ -196,7 +193,6 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		parseSamplers(context);
 		scheduler = Executors.newScheduledThreadPool(1);
 		scheduler.scheduleAtFixedRate(this, 1, 1, TimeUnit.SECONDS);
-
 		recordSubSamples = Boolean.parseBoolean(context.getParameter(KEY_RECORD_SUB_SAMPLES, "false"));
 	}
 
@@ -235,7 +231,7 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		samplersToFilter.clear();
 		super.teardownTest(context);
 
-		if (context.getBooleanParameter(KEY_CREATE_AGGREGATED_REPORT, true)) {
+		if (context.getBooleanParameter(KEY_CREATE_AGGREGATED_REPORT, false)) {
 			createAggregatedReport();
 		}
 	}
@@ -247,6 +243,9 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		try {
 			ThreadCounts tc = JMeterContextService.getThreadCounts();
 			addVirtualUsersMetrics(getUserMetrics().getMinActiveThreads(), getUserMetrics().getMeanActiveThreads(), getUserMetrics().getMaxActiveThreads(), tc.startedThreads, tc.finishedThreads);
+			if (write_LG_JVM_monitoring){
+				writeLoadGeneratorMonirotingMetrics();
+			}
 		}
 		catch (Exception e) {
 			LOGGER.error("Failed writing to InfluxDB", e);
@@ -263,9 +262,14 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 		try {
 		influxDBConfig = new InfluxDBConfig(context);
 		influxDB = InfluxDBFactory.connect(influxDBConfig.getInfluxDBURL(), influxDBConfig.getInfluxUser(), influxDBConfig.getInfluxPassword());
-		influxDB.enableBatch(100, 5, TimeUnit.SECONDS);
+		influxDB.enableBatch(200, 5, TimeUnit.SECONDS);
 
-		createDatabaseIfNotExistent();
+		createJmeterDatabaseIfNotExistent();
+
+		if (Boolean.parseBoolean(context.getParameter(KEY_WRITE_LG_JVM_MONITORING))){
+			createLgMonitoringDatabaseIfNotExistent();
+		}
+
 		isInfluxDBPingOk = true;
 		LOGGER.info("++++++ InfluxDB ping test: Success ++++++");
 		} catch (RuntimeException e){
@@ -274,7 +278,6 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 			LOGGER.info(ExceptionUtils.getStackTrace(e));
 		}
 	}
-
 	/**
 	 * Parses list of samplers.
 	 *
@@ -314,38 +317,68 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
   		influxDB.write(influxDBConfig.getInfluxDatabase(), influxDBConfig.getInfluxRetentionPolicy(), builder.build());
 	}
 	private void writeLoadGeneratorMonirotingMetrics(){
+//		Builder builder_mxBeanPool = Point.measurement("jmeter_jvm").time(System.currentTimeMillis()/1000, TimeUnit.SECONDS);
+		Builder builder_non_heap= Point.measurement("jmeter_jvm").time(System.currentTimeMillis()/1000, TimeUnit.SECONDS);
+		Builder builder_heap= Point.measurement("jmeter_jvm").time(System.currentTimeMillis()/1000, TimeUnit.SECONDS);
 
 		MemoryMXBean m = ManagementFactory.getMemoryMXBean();
-		Builder builder = Point.measurement("jmeter_jvm").time(System.currentTimeMillis()/1000, TimeUnit.SECONDS);
-		builder.tag(KEY_PROJECT_NAME, projectName);
-		builder.tag(KEY_ENV_TYPE, envType);
-		builder.tag(KEY_TEST_TYPE, testType);
-		builder.tag(KEY_BUILD, buildId);
-		builder.tag(KEY_LG_NAME, loadGenerator);
-		builder.addField("Non_Heap_max",(int)(m.getNonHeapMemoryUsage().getMax()/ONE_MB_IN_BYTES));
-		builder.addField("Non_Heap_used",(int)(m.getNonHeapMemoryUsage().getUsed()/ONE_MB_IN_BYTES));
-		builder.addField("Heap_max",(int)(m.getHeapMemoryUsage().getMax()/ONE_MB_IN_BYTES));
-		builder.addField("Heap_used",(int)(m.getHeapMemoryUsage().getUsed()/ONE_MB_IN_BYTES));
+
 		for (MemoryPoolMXBean pool : ManagementFactory.getMemoryPoolMXBeans()) {
-			builder.addField(pool.getName().replace(" ","_")+"_used",(int)(pool.getUsage().getUsed()/ONE_MB_IN_BYTES));
-			builder.addField(pool.getName().replace(" ","_")+"_max",(int)(pool.getUsage().getMax()/ONE_MB_IN_BYTES));
+			Builder builder_mxBeanPool = Point.measurement("jmeter_jvm").time(System.currentTimeMillis()/1000, TimeUnit.SECONDS);
+			builder_mxBeanPool.tag(KEY_PROJECT_NAME, projectName);
+			builder_mxBeanPool.tag(KEY_ENV_TYPE, envType);
+			builder_mxBeanPool.tag(KEY_TEST_TYPE, testType);
+			builder_mxBeanPool.tag(KEY_BUILD, buildId);
+			builder_mxBeanPool.tag(KEY_LG_NAME, loadGenerator);
+			builder_mxBeanPool.tag("Metric",pool.getName().replace(" ","_"));
+			builder_mxBeanPool.addField("Used",(int)(pool.getUsage().getUsed()/ONE_MB_IN_BYTES));
+			builder_mxBeanPool.addField("Max",(int)(pool.getUsage().getMax()/ONE_MB_IN_BYTES));
+			builder_mxBeanPool.addField("Committed",(int)(pool.getUsage().getCommitted()/ONE_MB_IN_BYTES));
+			Point pnt = builder_mxBeanPool.build();
+			influxDB.write("lg_monitoring","",pnt);
+			LOGGER.info(pnt.toString());
 		}
-		influxDB.write("lg_monitoring","",builder.build());
+
+		builder_non_heap.addField("Max",(int)(m.getNonHeapMemoryUsage().getMax()/ONE_MB_IN_BYTES));
+		builder_non_heap.addField("Committed",(int)(m.getNonHeapMemoryUsage().getCommitted()/ONE_MB_IN_BYTES));
+		builder_non_heap.addField("Used",(int)(m.getNonHeapMemoryUsage().getUsed()/ONE_MB_IN_BYTES));
+		builder_non_heap.tag("Metric","Non-Heap");
+		builder_non_heap.tag(KEY_PROJECT_NAME, projectName);
+		builder_non_heap.tag(KEY_ENV_TYPE, envType);
+		builder_non_heap.tag(KEY_TEST_TYPE, testType);
+		builder_non_heap.tag(KEY_BUILD, buildId);
+		builder_non_heap.tag(KEY_LG_NAME, loadGenerator);
+		influxDB.write("lg_monitoring","",builder_non_heap.build());
+
+		builder_heap.addField("Max",(int)(m.getHeapMemoryUsage().getMax()/ONE_MB_IN_BYTES));
+		builder_heap.addField("Committed",(int)(m.getHeapMemoryUsage().getCommitted()/ONE_MB_IN_BYTES));
+		builder_heap.addField("Used",(int)(m.getHeapMemoryUsage().getUsed()/ONE_MB_IN_BYTES));
+		builder_heap.tag("Metric","Heap");
+		builder_heap.tag(KEY_PROJECT_NAME, projectName);
+		builder_heap.tag(KEY_ENV_TYPE, envType);
+		builder_heap.tag(KEY_TEST_TYPE, testType);
+		builder_heap.tag(KEY_BUILD, buildId);
+		builder_heap.tag(KEY_LG_NAME, loadGenerator);
+		influxDB.write("lg_monitoring","",builder_heap.build());
+
 	}
 
 	/**
 	 * Creates the configured database in influxdb if it does not exist yet.
 	 */
-	private void createDatabaseIfNotExistent() {
+	private void createJmeterDatabaseIfNotExistent() {
 		List<String> dbNames = influxDB.describeDatabases();
 		if (!dbNames.contains(influxDBConfig.getInfluxDatabase())) {
 			influxDB.createDatabase(influxDBConfig.getInfluxDatabase());
 		}
+	}
+	private void createLgMonitoringDatabaseIfNotExistent() {
 		if (!influxDB.describeDatabases().contains("LG_monitoring")) {
-			LOGGER.info("++++++Creating database++++++");
 			influxDB.createDatabase("lg_monitoring");
+			write_LG_JVM_monitoring = true;
 		}
 	}
+
 
 	/**
 	 * Creates aggregate report at aggregateRepots measurement.
