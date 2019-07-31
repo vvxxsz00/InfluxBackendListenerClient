@@ -336,7 +336,6 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 			builder_mxBeanPool.addField("Committed",(int)(pool.getUsage().getCommitted()/ONE_MB_IN_BYTES));
 			Point pnt = builder_mxBeanPool.build();
 			influxDB.write("lg_monitoring","",pnt);
-			LOGGER.info(pnt.toString());
 		}
 
 		builder_non_heap.addField("Max",(int)(m.getNonHeapMemoryUsage().getMax()/ONE_MB_IN_BYTES));
