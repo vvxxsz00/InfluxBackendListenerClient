@@ -84,6 +84,14 @@ public class InfluxBackendListenerClient extends AbstractBackendListenerClient i
 			if(recordSubSamples) {
 				for (SampleResult subResult : sampleResult.getSubResults()) {
 					allSampleResults.add(subResult);
+					/*
+					Check if sub samplers have their own sub samplers and add them to the list
+					Made as a workaround to obtain child samples of Parallel Controller,
+					which is nested in Transaction Controller
+					*/
+					if (subResult.getSubResults().length > 0) {
+						Collections.addAll(allSampleResults, subResult.getSubResults());
+					}
 				}
 			}
 		}
